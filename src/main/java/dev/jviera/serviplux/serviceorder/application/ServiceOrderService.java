@@ -1,7 +1,11 @@
 package dev.jviera.serviplux.serviceorder.application;
 
+import dev.jviera.serviplux.serviceorder.application.dto.AssignTechnicianRequest;
+import dev.jviera.serviplux.serviceorder.application.dto.CreateQuoteRequest;
+import dev.jviera.serviplux.serviceorder.application.dto.CreateServiceOrderRequest;
 import dev.jviera.serviplux.serviceorder.domain.ServiceOrder;
 import dev.jviera.serviplux.serviceorder.domain.ServiceStatus;
+import dev.jviera.serviplux.serviceorder.exception.ServiceOrderNotFoundException;
 import dev.jviera.serviplux.serviceorder.persistence.ServiceOrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,35 +20,32 @@ public class ServiceOrderService {
 
     private final ServiceOrderRepository serviceOrderRepository;
 
-    // Método para crear una nueva orden de servicio
     @Transactional
-    public ServiceOrder createServiceOrder(UUID customerId, String description) {
+    public ServiceOrder createServiceOrder(CreateServiceOrderRequest request) {
         ServiceOrder order = new ServiceOrder();
-        order.setCustomerId(customerId);
-        order.setServiceDescription(description);
+        order.setCustomerId(request.customerId());
+        order.setServiceDescription(request.serviceDescription());
         order.setCreationDate(LocalDateTime.now());
         order.setStatus(ServiceStatus.PENDING_ASSIGNMENT);
         return serviceOrderRepository.save(order);
     }
 
-    // Método para asignar un técnico y una fecha de visita
     @Transactional
-    public ServiceOrder assignTechnicianAndScheduleVisit(UUID orderId, UUID technicianId, LocalDateTime visitDate) {
+    public ServiceOrder assignTechnicianAndScheduleVisit(UUID orderId, AssignTechnicianRequest request) {
         return serviceOrderRepository.findById(orderId).map(order -> {
-            order.setTechnicianId(technicianId);
-            order.setVisitDate(visitDate);
+            order.setTechnicianId(request.technicianId());
+            order.setVisitDate(request.visitDate());
             order.setStatus(ServiceStatus.SCHEDULED);
             return serviceOrderRepository.save(order);
-        }).orElseThrow(() -> new IllegalArgumentException("Order not found"));
+        }).orElseThrow(() -> new ServiceOrderNotFoundException("Service order not found with id: " + orderId));
     }
 
-    // Método para realizar una cotización
     @Transactional
-    public ServiceOrder createQuote(UUID orderId, Double quotePrice) {
+    public ServiceOrder createQuote(UUID orderId, CreateQuoteRequest request) {
         return serviceOrderRepository.findById(orderId).map(order -> {
-            order.setQuotePrice(quotePrice);
+            order.setQuotePrice(request.quotePrice());
             order.setStatus(ServiceStatus.PENDING_QUOTE_ACCEPTANCE);
             return serviceOrderRepository.save(order);
-        }).orElseThrow(() -> new IllegalArgumentException("Order not found"));
+        }).orElseThrow(() -> new ServiceOrderNotFoundException("Service order not found with id: " + orderId));
     }
 }
